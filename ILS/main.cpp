@@ -16,10 +16,6 @@ Assim que é a struct de solução em C*/
     CL, então, seria o complemento de V'
 */
 
-/*
-    Falta ajeitar o update solution
-*/
-
 const int numberOfVertices = 10;
 std::vector<int> vertices;
 int edgeCost[numberOfVertices][numberOfVertices];
@@ -64,12 +60,25 @@ class Solution{
         void pushBackSequence(int value){
             sequence.push_back(value);
         }
+
+        void insertSequenceAt(int value, int position){
+
+            if(position > sequence.size() - 1){
+                return;
+            }
+            std::vector<int>::iterator it = sequence.begin() + position;
+            sequence.insert(it, value);
+        }
+
+        void swapSequence(int position1, int position2){
+            std::swap(sequence.at(position1), sequence.at(position2));
+        }
 };
 
 class InsertionInfo{
     private:
         int insertedNode;
-        int removedEdge;
+        int removedEdgeIndex;
         double cost;
     
     public:
@@ -77,8 +86,8 @@ class InsertionInfo{
             return insertedNode;
         }
 
-        int getRemovedEdge(){
-            return removedEdge;
+        int getRemovedEdgeIndex(){
+            return removedEdgeIndex;
         }
 
         double getCost(){
@@ -89,8 +98,8 @@ class InsertionInfo{
             insertedNode = node;
         }
 
-        void setRemovedEdge(int edge){
-            removedEdge = edge;
+        void setRemovedEdgeIndex(int edge){
+            removedEdgeIndex = edge;
         }
 
         void setCost(double value){
@@ -98,7 +107,7 @@ class InsertionInfo{
         }
 
         void print(){
-            printf("{ insertedNode: %d, removedEdge: %d, cost: %f }\n", insertedNode, removedEdge, cost);
+            printf("{ insertedNode: %d, removedEdge: %d, cost: %f }\n", insertedNode, removedEdgeIndex, cost);
         }
 };
 
@@ -122,7 +131,9 @@ std::vector<int> remainingNodes(std::vector<int> sequence);
 
 void insertionSort(std::vector<InsertionInfo> &sequence);
 
-void updateSolution(Solution &solution, int choosen, std::vector<int> &complement);
+void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> &complement);
+
+bool bestImprovementSwap(Solution *solution);
 
 
 int main(void){
@@ -135,6 +146,7 @@ int main(void){
 
     printf("\n");
     solution.print();
+
 
     // Solution solution;
     // solution.pushBackSequence(vertices.at(0));
@@ -233,7 +245,7 @@ std::vector<InsertionInfo> insertionCostCalculation(Solution &solution, std::vec
         for(auto vertexK : complement){
             insertionCost[l].setCost(edgeCost[vertexI][vertexK] + edgeCost[vertexJ][vertexK] - edgeCost[vertexI][vertexJ]);
             insertionCost[l].setInsertedNode(vertexK);
-            insertionCost[l].setRemovedEdge(a);
+            insertionCost[l].setRemovedEdgeIndex(a);
             l++;
         }
     }
@@ -278,15 +290,54 @@ void insertionSort(std::vector<InsertionInfo> &sequence){
 }
 
 void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> &complement){
-    solution.pushBackSequence(choosen);
+    solution.insertSequenceAt(choosen.getInsertedNode(), choosen.getRemovedEdgeIndex() + 1);
 
     for(int i = 0; i < complement.size(); i++){
-        if(complement.at(i) == choosen){
+        if(complement.at(i) == choosen.getInsertedNode()){
             complement.erase(complement.begin() + i);
             break;
         }
     }
+}
 
+bool bestImprovementSwap(Solution *solution){
+    double bestDelta = 0;
+    double best_i, best_j;
+
+    int i_value, i_value_next, i_value_prev;
+    int j_value, j_value_next, j_value_prev;
+    double delta;
+
+    for(int i = 1; i < solution->getSequence().size() - 1; i++){
+        i_value = solution->getSequence().at(i);
+        i_value_next = solution->getSequence().at(i + 1);
+        i_value_prev = solution->getSequence().at(i - 1);
+
+        for(int j = i + 1; j < solution->getSequence().size() - 1; j++){
+            j_value = solution->getSequence().at(j);
+            j_value_next = solution->getSequence().at(j + 1);
+            j_value_prev = solution->getSequence().at(j - 1);
+
+            //Revisar essa fórmula do delta.
+            delta = -edgeCost[i_value][i_value_prev] - edgeCost[i_value][i_value_next] + edgeCost[i_value_prev][i] + 
+                    edgeCost[j_value][i_value_next] - edgeCost[j_value_prev][j_value] - edgeCost[j_value][j_value_next] + 
+                    edgeCost[j_value][i_value] + edgeCost[i_value][j_value_next];
+
+            if(delta < bestDelta){
+                bestDelta = delta;
+                best_i = i;
+                best_j = j;
+            }
+        }
+    }
+
+    if(bestDelta < 0){
+        solution->swapSequence(best_i, best_j);
+        solution->setCost(solution->getCost() + delta);
+        return true;
+    }
+
+    return false;
 }
 
 
