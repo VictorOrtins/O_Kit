@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <math.h>
 #include <bits/stdc++.h>
+#include <stdio.h>
 
 /*
  typedef struct Solucao{
@@ -20,6 +21,7 @@ Assim que é a struct de solução em C*/
 const int numberOfVertices = 10;
 std::vector<int> vertices;
 int edgeCost[numberOfVertices][numberOfVertices];
+std::vector<int> *solutionSequence;
 
 class Solution{
     private:
@@ -58,38 +60,8 @@ class Solution{
             return cost;
         }
 
-        void pushBackSequence(int value){
-            sequence.push_back(value);
-        }
-
-        void insertSequenceAt(int value, int position){
-
-            if(position > sequence.size() - 1){
-                return;
-            }
-
-            std::vector<int>::iterator it = sequence.begin() + position;
-            sequence.insert(it, value);
-        }
-
-        void insertVectorSequenceAt(std::vector<int> subVector, int position){
-            if(position >= sequence.size()){
-                return;
-            }
-
-            sequence.insert(sequence.begin() + position, subVector.begin(), subVector.end());
-        }
-
-        void swapSequence(int position1, int position2){
-            std::swap(sequence.at(position1), sequence.at(position2));
-        }
-
-        void eraseSequence(int begginingIndex, int endingIndex){
-            sequence.erase(sequence.begin() + begginingIndex, sequence.begin() + endingIndex);
-        }
-
-        std::vector<int> subVectorSequence(int begginingIndex, int endingIndex){
-            return std::vector<int> {sequence.begin() + begginingIndex, sequence.begin() + endingIndex};
+        std::vector<int>* getSequencePointer(){
+            return &sequence;
         }
 };
 
@@ -160,7 +132,6 @@ bool bestImprovementReinsertion(Solution *solution);
 bool bestImprovementOrOpt(Solution *solution, int optNumber);
 
 
-
 int main(void){
 
     for(int i = 0; i < numberOfVertices; i++){
@@ -170,18 +141,25 @@ int main(void){
     Solution solution = construction();
 
     printf("\n");
-    solution.print();   
+    solution.print();
 
-    bestImprovement2Opt(&solution);
+    bestImprovementSwap(&solution);
 
     printf("\n");
     solution.print();
 
+    // bestImprovement2Opt(&solution);
+
+    // printf("\n");
+    // solution.print();
+
+
 
     // Solution solution;
-    // solution.pushBackSequence(vertices.at(0));
-    // solution.pushBackSequence(vertices.at(1));
-    // solution.pushBackSequence(vertices.at(2));
+    // std::vector<int> *sequence = solution.getSequencePointer();
+    // sequence->push_back(vertices.at(0));
+    // sequence->push_back(vertices.at(1));
+    // sequence->push_back(vertices.at(2));
 
     // std::vector<int> complement;
     // for(int i = solution.getSequence().size(); i < numberOfVertices; i++){
@@ -300,15 +278,17 @@ Solution iteratedLocalSearch(int maxIter, int maxIterILS){
 }
 
 std::vector<InsertionInfo> insertionCostCalculation(Solution &solution, std::vector<int> &complement){
-    int solutionSequenceSize = solution.getSequence().size();
+    solutionSequence = solution.getSequencePointer();
+
+    int solutionSequenceSize = solutionSequence->size();
 
     std::vector<InsertionInfo> insertionCost( (solutionSequenceSize) * (complement.size()));
 
     int l = 0;
     //Calcula todas as possibilidades de inserção
     for(int a = 0, b = 1; a < solutionSequenceSize - 1; a++, b++){
-        int vertexI = solution.getSequence().at(a);
-        int vertexJ = solution.getSequence().at(b);
+        int vertexI = solutionSequence->at(a);
+        int vertexJ = solutionSequence->at(b);
 
         for(auto vertexK : complement){
             insertionCost[l].setCost(edgeCost[vertexI][vertexK] + edgeCost[vertexJ][vertexK] - edgeCost[vertexI][vertexJ]);
@@ -359,7 +339,10 @@ void insertionSort(std::vector<InsertionInfo> &sequence){
 }
 
 void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> &complement){
-    solution.insertSequenceAt(choosen.getInsertedNode(), choosen.getRemovedEdgeIndex() + 1);
+    solutionSequence = solution.getSequencePointer();
+
+
+    solutionSequence->insert(solutionSequence->begin() + choosen.getRemovedEdgeIndex() + 1, choosen.getInsertedNode());
     //Colocar o vértice no lugar correspondente. se antes tinham os vértices i - j, e colocou-se um
     //k no meio (i - k - j), a função vai fazer isso ai
 
@@ -372,6 +355,8 @@ void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> 
 }
 
 bool bestImprovementSwap(Solution *solution){
+    solutionSequence = solution->getSequencePointer();
+
     double bestDelta = 0; 
     int best_i, best_j;
 
@@ -379,15 +364,15 @@ bool bestImprovementSwap(Solution *solution){
     int j_value, j_value_next, j_value_prev;
     double delta;
 
-    for(int i = 1; i < solution->getSequence().size() - 1; i++){
-        i_value = solution->getSequence().at(i);
-        i_value_next = solution->getSequence().at(i + 1);
-        i_value_prev = solution->getSequence().at(i - 1);
+    for(int i = 1; i < solutionSequence->size() - 1; i++){
+        i_value = solutionSequence->at(i);
+        i_value_next = solutionSequence->at(i + 1);
+        i_value_prev = solutionSequence->at(i - 1);
 
-        for(int j = i + 1; j < solution->getSequence().size() - 1; j++){
-            j_value = solution->getSequence().at(j);
-            j_value_next = solution->getSequence().at(j + 1);
-            j_value_prev = solution->getSequence().at(j - 1);
+        for(int j = i + 1; j < solutionSequence->size() - 1; j++){
+            j_value = solutionSequence->at(j);
+            j_value_next = solutionSequence->at(j + 1);
+            j_value_prev = solutionSequence->at(j - 1);
 
             //Revisar essa fórmula do delta. REVISA ISSO AQUI!!
             delta = -edgeCost[i_value][i_value_prev] - edgeCost[i_value][i_value_next] + edgeCost[i_value_prev][i] + 
@@ -403,7 +388,7 @@ bool bestImprovementSwap(Solution *solution){
     }
 
     if(bestDelta < 0){
-        solution->swapSequence(best_i, best_j);
+        std::swap(solutionSequence->at(best_i), solutionSequence->at(best_j));
         solution->setCost(solution->getCost() + delta);
         return true;
     }
@@ -416,19 +401,21 @@ bool bestImprovementReinsertion(Solution *solution){
 }
 
 bool bestImprovement2Opt(Solution *possibleSolution){
+    solutionSequence = possibleSolution->getSequencePointer();
+
     double best_delta = 0, delta = 0;
 
     int best_i = 0, best_j = 0;
     int i_value = 0, i_next_value = 0;
     int j_value = 0, j_next_value = 0;
 
-    for(int i = 0; i < possibleSolution->getSequence().size() - 1; i++){
-        i_value = possibleSolution->getSequence().at(i);
-        i_next_value = possibleSolution->getSequence().at(i + 1);
+    for(int i = 0; i < solutionSequence->size() - 1; i++){
+        i_value = solutionSequence->at(i);
+        i_next_value = solutionSequence->at(i + 1);
 
-        for(int j = i + 2; j < possibleSolution->getSequence().size() - 1; j++){
-            j_value = possibleSolution->getSequence().at(j);
-            j_next_value = possibleSolution->getSequence().at(j + 1);
+        for(int j = i + 2; j < solutionSequence->size() - 1; j++){
+            j_value = solutionSequence->at(j);
+            j_next_value = solutionSequence->at(j + 1);
 
             delta = -edgeCost[i][i + 1] - edgeCost[j][j + 1] + edgeCost[i][j] + edgeCost[i + 1][j + 1];
 
@@ -441,13 +428,14 @@ bool bestImprovement2Opt(Solution *possibleSolution){
     }
 
     if(best_delta < 0){
-        std::vector<int> subVector = {possibleSolution->subVectorSequence(best_i + 1, best_j)};
-        possibleSolution->eraseSequence(best_i + 1, best_j);
+        std::vector<int> subVector = {solutionSequence->begin() + best_i + 1, solutionSequence->begin() + best_j};
+
+        solutionSequence->erase(solutionSequence->begin() + best_i + 1, solutionSequence->end() + best_j);
 
         //O(n)
         std::reverse(subVector.begin(), subVector.end());
+        solutionSequence->insert(solutionSequence->begin() + best_i + 1, subVector.begin(), subVector.end());
 
-        possibleSolution->insertVectorSequenceAt(subVector, best_i + 1);
         return true;
     }
 
@@ -457,8 +445,3 @@ bool bestImprovement2Opt(Solution *possibleSolution){
 bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
     return false;
 }
-
-
-
-
-
