@@ -7,7 +7,6 @@ class Solution{
         double valorObj;
 
     public:
-
         Solution(std::vector<int> seq, double obj):sequencia{seq}, valorObj{obj}{}
 
         void exibirSolucao(){
