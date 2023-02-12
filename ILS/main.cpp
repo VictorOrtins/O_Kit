@@ -1,27 +1,14 @@
 #include <iostream>
+#include <stdlib.h>
+#include <time.h>
 #include <vector>
-#include <limits>
 #include <algorithm>
 #include <math.h>
-#include <bits/stdc++.h>
-#include <stdio.h>
 
-/*
- typedef struct Solucao{
-    vector<int> sequence;
-    double valorObj;
- } Solucao;
-Assim que é a struct de solução em C*/
-
-/*
-    CL = V\V' significa que CL é igual ao conjunto de vértices de V que não estão em V'
-    CL, então, seria o complemento de V'
-*/
-
+std::vector<int> *solutionSequence;
 const int numberOfVertices = 10;
 std::vector<int> vertices;
 int edgeCost[numberOfVertices][numberOfVertices];
-std::vector<int> *solutionSequence;
 
 class Solution{
     private:
@@ -29,7 +16,6 @@ class Solution{
         double cost;
 
     public:
-
         Solution(std::vector<int> seq, double obj):sequence{seq}, cost{obj}{}
 
         Solution(){}
@@ -97,23 +83,12 @@ class InsertionInfo{
         }
 
         void print(){
-            printf("{ insertedNode: %d, removedEdge: %d, cost: %f }\n", insertedNode, removedEdgeIndex, cost);
+            printf("{ insertedNode: %d, removedEdgeIndex: %d, cost: %f }\n", insertedNode, removedEdgeIndex, cost);
         }
 };
 
-Solution iteratedLocalSearch(int maxIter, int maxIterILS);
-
-Solution construction();
-
-Solution perturbation(Solution bestSolution);
-
-void localSearch(Solution* possibleSolution);
 
 bool greaterCost(Solution first, Solution second);
-
-void whileILS(Solution solution, int *iterILS);
-
-std::vector<InsertionInfo> insertionCostCalculation(Solution &solution, std::vector<int> &complement);
 
 std::vector<int> choose3RandomNodes();
 
@@ -121,7 +96,7 @@ std::vector<int> remainingNodes(std::vector<int> sequence);
 
 void insertionSort(std::vector<InsertionInfo> &sequence);
 
-void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> &complement);
+bool vectorContains(std::vector<int> vec, int value);
 
 bool bestImprovementSwap(Solution *solution);
 
@@ -131,8 +106,36 @@ bool bestImprovementReinsertion(Solution *solution);
 
 bool bestImprovementOrOpt(Solution *solution, int optNumber);
 
+bool vectorContains(std::vector<int> vec, int value);
+
+void orOptUpdate(std::vector<int> *solutionSequence, int opt, int best_i, int best_j);
+
+Solution iteratedLocalSearch(int maxIter, int maxIterILS); //
+
+Solution construction(); //
+
+Solution perturbation(Solution bestSolution); //
+
+void localSearch(Solution* possibleSolution); //
+
+void whileILS(Solution solution, int *iterILS);
+
+std::vector<InsertionInfo> insertionCostCalculation(Solution &solution, std::vector<int> &complement); 
+
+void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> &complement);
+
+void printVector(int i_value, int j_value);
+
+void setEdgeCosts();
+
+std::vector<InsertionInfo> insertionInfo();
 
 int main(void){
+
+    time_t t;
+    srand(time(&t));
+
+    setEdgeCosts();
 
     for(int i = 0; i < numberOfVertices; i++){
         vertices.push_back(i + 1);
@@ -143,16 +146,25 @@ int main(void){
     printf("\n");
     solution.print();
 
-    bestImprovementSwap(&solution);
+    // bestImprovementSwap(&solution);
 
-    printf("\n");
-    solution.print();
+    // printf("\n");
+    // solution.print();
 
     // bestImprovement2Opt(&solution);
 
     // printf("\n");
     // solution.print();
 
+    bestImprovementReinsertion(&solution);
+
+    printf("\n");
+    solution.print();
+
+    bestImprovementOrOpt(&solution, 2);
+
+    printf("\n");
+    solution.print();
 
 
     // Solution solution;
@@ -175,6 +187,297 @@ int main(void){
     return 0;
 }
 
+void setEdgeCosts(){
+    for(int i = 0; i < numberOfVertices; i++){
+        for(int j = i; j < numberOfVertices; j++){
+
+            if(i == j){
+                edgeCost[i][j] = 0;
+                continue;
+            }
+
+            int num = rand() % 30 + 1;
+            edgeCost[i][j] = num;
+            edgeCost[j][i] = num;
+        }
+    }
+}
+
+std::vector<InsertionInfo> insertionInfo(){
+    std::vector<InsertionInfo> vec;
+    InsertionInfo temp;
+    int num = rand() % 50 + 10;
+    for(int i = 0; i < num; i++){
+        temp.setCost( rand() % 30 - 10);
+        temp.setInsertedNode( rand() % 10 + 1);
+        temp.setRemovedEdgeIndex(rand() % 10 + 1);
+        vec.push_back(temp);
+    }
+
+
+    return vec;
+}
+
+bool greaterCost(Solution first, Solution second){
+    return first.getCost() < second.getCost();
+}
+
+std::vector<int> choose3RandomNodes(){
+    std::vector<int> ret;
+
+    ret.push_back(1);
+    for(int i = 0; i < 3; i++){
+        int vertex = (rand() % (numberOfVertices - 1)) + 2;
+        if(vectorContains(ret, vertex) == true){
+            i--;
+            continue;
+        }
+
+        ret.push_back(vertex); //3 vértices aleatórios
+    }
+
+    ret.push_back(1);
+
+    return ret;
+}
+
+std::vector<int> remainingNodes(std::vector<int> sequence){
+    std::vector<int> ret;
+
+    for(int i = 2; i < numberOfVertices + 1; i++){
+        if(vectorContains(sequence, i) == true){
+            continue;
+        }
+
+        ret.push_back(i);  //Apenas vértices que não estão
+        //em sequence
+    }
+
+    return ret;
+}
+
+void insertionSort(std::vector<InsertionInfo> &sequence){
+    int j;
+    InsertionInfo temp;
+
+    for(int i = 1; i < sequence.size(); i++){
+        temp = sequence.at(i);
+        j = i - 1;
+        while(j >= 0 && sequence.at(j).getCost() > temp.getCost()){ //Ordem crescente
+            sequence[j + 1] = sequence[j];
+            j--;
+        }
+        sequence[j + 1] = temp;
+    }
+}
+
+bool vectorContains(std::vector<int> vec, int value){
+
+    if(std::find(vec.begin(), vec.end(), value) == vec.end()){ //não contém
+        return false;
+    }
+
+    return true;
+}
+
+void printVector(std::vector<int> vec, int i_value){
+    
+    for(int i = 0; i < i_value; i++){
+        std::cout << "edgeCost[" << i << "] = " << vec.at(i) << std::endl;
+    }
+}
+
+bool bestImprovementSwap(Solution *solution){
+    solutionSequence = solution->getSequencePointer();
+
+    double bestDelta = 0; 
+    int best_i, best_j;
+
+    int i_value, i_value_next, i_value_prev;
+    int j_value, j_value_next, j_value_prev;
+    double delta;
+
+    for(int i = 1; i < solutionSequence->size() - 1; i++){
+        i_value = solutionSequence->at(i);
+        i_value_next = solutionSequence->at(i + 1);
+        i_value_prev = solutionSequence->at(i - 1);
+
+        for(int j = i + 1; j < solutionSequence->size() - 1; j++){
+            j_value = solutionSequence->at(j);
+            j_value_next = solutionSequence->at(j + 1);
+            j_value_prev = solutionSequence->at(j - 1);
+
+            //Revisar essa fórmula do delta. REVISA ISSO AQUI!!
+            delta = -edgeCost[i_value][i_value_prev] - edgeCost[i_value][i_value_next] + edgeCost[i_value_prev][i] + 
+                    edgeCost[j_value][i_value_next] - edgeCost[j_value_prev][j_value] - edgeCost[j_value][j_value_next] + 
+                    edgeCost[j_value][i_value] + edgeCost[i_value][j_value_next];
+
+            if(delta < bestDelta){
+                bestDelta = delta;
+                best_i = i;
+                best_j = j;
+            } 
+        }
+    }
+
+    if(bestDelta < 0){
+        std::swap(solutionSequence->at(best_i), solutionSequence->at(best_j));
+        solution->setCost(solution->getCost() + delta);
+        return true;
+    }
+
+    return false;
+}
+
+bool bestImprovement2Opt(Solution *possibleSolution){
+    solutionSequence = possibleSolution->getSequencePointer();
+
+    double best_delta = 0, delta = 0;
+
+    int best_i = 0, best_j = 0;
+    int i_value = 0, i_next_value = 0;
+    int j_value = 0, j_next_value = 0;
+
+    for(int i = 0; i < solutionSequence->size() - 1; i++){
+        i_value = solutionSequence->at(i);
+        i_next_value = solutionSequence->at(i + 1);
+
+        for(int j = i + 2; j < solutionSequence->size() - 1; j++){
+            j_value = solutionSequence->at(j);
+            j_next_value = solutionSequence->at(j + 1);
+
+            delta = -edgeCost[i_value][i_next_value] - edgeCost[j_value][j_next_value] 
+                    + edgeCost[i_value][j_value] + edgeCost[i_next_value][j_next_value];
+
+            if(delta < best_delta){
+                best_delta = delta;
+                best_i = i;
+                best_j = j;
+            }
+        }
+    } 
+
+    if(best_delta < 0){
+        //Revisar porque seria best_i + 1, e não best_i
+        std::vector<int> subVector = {solutionSequence->begin() + best_i + 1, solutionSequence->begin() + best_j};
+
+        solutionSequence->erase(solutionSequence->begin() + best_i + 1, solutionSequence->begin() + best_j);
+
+        // //O(n)
+        std::reverse(subVector.begin(), subVector.end());
+        solutionSequence->insert(solutionSequence->begin() + best_i + 1, subVector.begin(), subVector.end());
+
+        possibleSolution->setCost(possibleSolution->getCost() + delta);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool bestImprovementReinsertion(Solution *solution){
+    return bestImprovementOrOpt(solution, 1); //Uma reinserção é só um Or-Opt de 1
+}
+
+bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
+    //NO OR OPT 2, ELE TÁ TROCANDO O 1 DA VOLTA!!!!
+    //O DE IDA TAMBÉM!!!
+    if(opt < 1 || opt > 3){
+        return false;
+    }
+
+    solutionSequence = possibleSolution->getSequencePointer();
+    int solutionSequenceSize = solutionSequence->size();
+
+    double best_delta = 0, delta = 0;
+
+    int best_i = 0, best_j = 0;
+    int i_value, i_value_next, i_value_prev, i_value_2_next;
+    int j_value, j_value_next;
+
+    int i_next, j_next, i_2_next;
+
+    int j = 0;
+    for(int i = 1; i < solutionSequenceSize - 1; i++){
+        i_next = (i + 1) % (solutionSequenceSize - 1);
+
+        i_value = solutionSequence->at(i);
+        i_value_next = solutionSequence->at(i_next);
+        i_value_prev = solutionSequence->at(i - 1);
+
+        j = i + 1;
+
+        if(opt == 2){
+            i_2_next = (i_next + 1) % (solutionSequenceSize - 2);
+            i_value_2_next = solutionSequence->at(i_2_next);
+            j = (j + 1) % (solutionSequenceSize - 1); 
+        }
+
+        while(j != i){
+
+            if(j == 0 || j == solutionSequenceSize - 1){
+                j = (j + 1) % solutionSequenceSize;                
+                continue;
+            }
+
+            j_next = (j + 1) % (solutionSequenceSize - 1);
+
+            j_value = solutionSequence->at(j);
+            j_value_next = solutionSequence->at(j + 1);
+
+            delta = -edgeCost[i_value_prev][i_value] - edgeCost[j_value][j_value_next] + edgeCost[i_value][j_value_next];
+
+            if(opt == 1){
+                delta += - edgeCost[i_value][i_value_next] + edgeCost[i_value_prev][i_value_next] + edgeCost[j_value][i_value];
+            }
+            else if(opt == 2){
+                delta +=  -edgeCost[i_value_next][i_value_2_next]
+                    + edgeCost[i_value_prev][i_value_2_next] + edgeCost[j_value][i_value_next];
+            }
+
+            if(delta < best_delta){
+                best_delta = delta;
+                best_i = i;
+                best_j = j;
+            }
+
+            j = (j + 1) % (solutionSequenceSize - 1);
+        }
+    }
+
+    if(best_delta < 0){
+        orOptUpdate(solutionSequence, opt, best_i, best_j);
+        possibleSolution->setCost(possibleSolution->getCost() + best_delta);
+
+        return true;
+    }
+
+    return false;
+}
+
+void orOptUpdate(std::vector<int> *solutionSequence, int opt, int best_i, int best_j){
+    switch(opt){
+        case 1:{
+            int reinsertedValue = solutionSequence->at(best_i);
+            solutionSequence->erase(solutionSequence->begin() + best_i);
+            solutionSequence->insert(solutionSequence->begin() + best_j, reinsertedValue);
+            break;
+        }
+
+        case 2:{
+            std::vector<int> subVector {solutionSequence->begin() + best_i, solutionSequence->begin() + best_i + 2};
+            solutionSequence->erase(solutionSequence->begin() + best_i, solutionSequence->begin() + best_i + 2);
+
+            std::reverse(subVector.begin(), subVector.end());
+            for(int i = 0; i < subVector.size(); i++){
+                printf("\n%d", subVector.at(i));
+            }
+            solutionSequence->insert(solutionSequence->begin() + best_j - 1, subVector.begin(), subVector.end());
+            break;
+        }
+    }
+}
+
 Solution construction(){
     Solution solution;
 
@@ -188,8 +491,8 @@ Solution construction(){
 
         std::vector<InsertionInfo> insertionCost = insertionCostCalculation(solution, complement); 
         //Todas possibilidades de inserção
-
         insertionSort(insertionCost); //Ordenar essas possibilidades em ordem crescente de custo
+
         alpha = (double) rand() / RAND_MAX; 
         choosen = rand() % ((int) ceil (alpha * insertionCost.size())); //Definir a inserção escolhida
 
@@ -241,10 +544,6 @@ void localSearch(Solution* possibleSolution){
     }
 }
 
-bool greaterCost(Solution first, Solution second){
-    return first.getCost() < second.getCost();
-}
-
 Solution iteratedLocalSearch(int maxIter, int maxIterILS){
     Solution bestOfAll;
     int iterILS;
@@ -282,65 +581,30 @@ std::vector<InsertionInfo> insertionCostCalculation(Solution &solution, std::vec
 
     int solutionSequenceSize = solutionSequence->size();
 
-    std::vector<InsertionInfo> insertionCost( (solutionSequenceSize) * (complement.size()));
+    std::vector<InsertionInfo> insertionCost;
 
-    int l = 0;
+    InsertionInfo temp;
     //Calcula todas as possibilidades de inserção
     for(int a = 0, b = 1; a < solutionSequenceSize - 1; a++, b++){
-        int vertexI = solutionSequence->at(a);
-        int vertexJ = solutionSequence->at(b);
+
+        int vertexI = solutionSequence->at(a) - 1; //O vértice 7 tem as distâncias representadas na matrix na linha 6. Por isso o -1
+        int vertexJ = solutionSequence->at(b) - 1;
 
         for(auto vertexK : complement){
-            insertionCost[l].setCost(edgeCost[vertexI][vertexK] + edgeCost[vertexJ][vertexK] - edgeCost[vertexI][vertexJ]);
-            insertionCost[l].setInsertedNode(vertexK);
-            insertionCost[l].setRemovedEdgeIndex(a);
-            l++;
+
+            temp.setCost(edgeCost[vertexI][vertexK] + edgeCost[vertexJ][vertexK] - edgeCost[vertexI][vertexJ]);
+            temp.setInsertedNode(vertexK);
+            temp.setRemovedEdgeIndex(a);
+
+            insertionCost.push_back(temp);
         }
     }
 
     return insertionCost;
 }
 
-std::vector<int> choose3RandomNodes(){
-    std::vector<int> ret;
-
-    for(int i = 0; i < 3; i++){
-        ret.push_back( rand() % numberOfVertices); //3 vértices aleatórios
-    }
-
-    return ret;
-}
-
-std::vector<int> remainingNodes(std::vector<int> sequence){
-    std::vector<int> ret;
-
-    for(int i = 0; i < numberOfVertices; i++){
-        if(std::find(sequence.begin(), sequence.end(), i) == sequence.end()){ //Apenas vértices que não estão
-        //em sequências
-            ret.push_back(i);
-        }
-    }
-
-    return ret;
-}
-
-void insertionSort(std::vector<InsertionInfo> &sequence){
-    int j;
-    InsertionInfo temp;
-    for(int i = 1; i < sequence.size(); i++){
-        temp = sequence.at(i);
-        j = i - 1;
-        while(j >= 0 && sequence.at(j).getCost() < temp.getCost()){
-            sequence[j + 1] = sequence[j];
-            j--;
-        }
-        sequence[j + 1] = temp;
-    }
-}
-
 void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> &complement){
     solutionSequence = solution.getSequencePointer();
-
 
     solutionSequence->insert(solutionSequence->begin() + choosen.getRemovedEdgeIndex() + 1, choosen.getInsertedNode());
     //Colocar o vértice no lugar correspondente. se antes tinham os vértices i - j, e colocou-se um
@@ -354,94 +618,7 @@ void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> 
     }
 }
 
-bool bestImprovementSwap(Solution *solution){
-    solutionSequence = solution->getSequencePointer();
 
-    double bestDelta = 0; 
-    int best_i, best_j;
 
-    int i_value, i_value_next, i_value_prev;
-    int j_value, j_value_next, j_value_prev;
-    double delta;
 
-    for(int i = 1; i < solutionSequence->size() - 1; i++){
-        i_value = solutionSequence->at(i);
-        i_value_next = solutionSequence->at(i + 1);
-        i_value_prev = solutionSequence->at(i - 1);
 
-        for(int j = i + 1; j < solutionSequence->size() - 1; j++){
-            j_value = solutionSequence->at(j);
-            j_value_next = solutionSequence->at(j + 1);
-            j_value_prev = solutionSequence->at(j - 1);
-
-            //Revisar essa fórmula do delta. REVISA ISSO AQUI!!
-            delta = -edgeCost[i_value][i_value_prev] - edgeCost[i_value][i_value_next] + edgeCost[i_value_prev][i] + 
-                    edgeCost[j_value][i_value_next] - edgeCost[j_value_prev][j_value] - edgeCost[j_value][j_value_next] + 
-                    edgeCost[j_value][i_value] + edgeCost[i_value][j_value_next];
-
-            if(delta < bestDelta){
-                bestDelta = delta;
-                best_i = i;
-                best_j = j;
-            }
-        }
-    }
-
-    if(bestDelta < 0){
-        std::swap(solutionSequence->at(best_i), solutionSequence->at(best_j));
-        solution->setCost(solution->getCost() + delta);
-        return true;
-    }
-
-    return false;
-}
-
-bool bestImprovementReinsertion(Solution *solution){
-    return bestImprovementOrOpt(solution, 1); //Uma reinserção é só um Or-Opt de 1
-}
-
-bool bestImprovement2Opt(Solution *possibleSolution){
-    solutionSequence = possibleSolution->getSequencePointer();
-
-    double best_delta = 0, delta = 0;
-
-    int best_i = 0, best_j = 0;
-    int i_value = 0, i_next_value = 0;
-    int j_value = 0, j_next_value = 0;
-
-    for(int i = 0; i < solutionSequence->size() - 1; i++){
-        i_value = solutionSequence->at(i);
-        i_next_value = solutionSequence->at(i + 1);
-
-        for(int j = i + 2; j < solutionSequence->size() - 1; j++){
-            j_value = solutionSequence->at(j);
-            j_next_value = solutionSequence->at(j + 1);
-
-            delta = -edgeCost[i][i + 1] - edgeCost[j][j + 1] + edgeCost[i][j] + edgeCost[i + 1][j + 1];
-
-            if(delta < best_delta){
-                best_delta = delta;
-                best_i = i;
-                best_j = j;
-            }
-        }
-    }
-
-    if(best_delta < 0){
-        std::vector<int> subVector = {solutionSequence->begin() + best_i + 1, solutionSequence->begin() + best_j};
-
-        solutionSequence->erase(solutionSequence->begin() + best_i + 1, solutionSequence->end() + best_j);
-
-        //O(n)
-        std::reverse(subVector.begin(), subVector.end());
-        solutionSequence->insert(solutionSequence->begin() + best_i + 1, subVector.begin(), subVector.end());
-
-        return true;
-    }
-
-    return false;
-}
-
-bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
-    return false;
-}
