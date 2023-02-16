@@ -130,6 +130,8 @@ void setEdgeCosts();
 
 std::vector<InsertionInfo> insertionInfo();
 
+double deltaUpdate(int opt, int i_value[], int j_value[]);
+
 int main(void){
 
     time_t t;
@@ -166,23 +168,11 @@ int main(void){
     printf("\n");
     solution.print();
 
+    bestImprovementOrOpt(&solution, 3);
 
-    // Solution solution;
-    // std::vector<int> *sequence = solution.getSequencePointer();
-    // sequence->push_back(vertices.at(0));
-    // sequence->push_back(vertices.at(1));
-    // sequence->push_back(vertices.at(2));
+    printf("\n");
+    solution.print();
 
-    // std::vector<int> complement;
-    // for(int i = solution.getSequence().size(); i < numberOfVertices; i++){
-    //     complement.push_back(i);
-    // }
-
-    // std::vector<InsertionInfo> insertionCost = insertionCostCalculation(solution, complement);
-
-    // for(auto insertion: insertionCost){
-    //     insertion.print();
-    // }
 
     return 0;
 }
@@ -358,7 +348,7 @@ bool bestImprovement2Opt(Solution *possibleSolution){
     } 
 
     if(best_delta < 0){
-        //Revisar porque seria best_i + 1, e não best_i
+
         std::vector<int> subVector = {solutionSequence->begin() + best_i + 1, solutionSequence->begin() + best_j};
 
         solutionSequence->erase(solutionSequence->begin() + best_i + 1, solutionSequence->begin() + best_j);
@@ -380,8 +370,7 @@ bool bestImprovementReinsertion(Solution *solution){
 }
 
 bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
-    //NO OR OPT 2, ELE TÁ TROCANDO O 1 DA VOLTA!!!!
-    //O DE IDA TAMBÉM!!!
+
     if(opt < 1 || opt > 3){
         return false;
     }
@@ -392,28 +381,47 @@ bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
     double best_delta = 0, delta = 0;
 
     int best_i = 0, best_j = 0;
-    int i_value, i_value_next, i_value_prev, i_value_2_next;
-    int j_value, j_value_next;
+    int i_value[5];
+    // i_value_prev, i_value, i_value_next, i_value_2_next, i_value_3_next;
 
-    int i_next, j_next, i_2_next;
+    int j_value[2];
+    // int j_value, j_value_next;
+
+    int j_next;
+    int i_next[3];
+    // int i_next, i_2_next, i_3_next;
 
     int j = 0;
     for(int i = 1; i < solutionSequenceSize - 1; i++){
-        i_next = (i + 1) % (solutionSequenceSize - 1);
+        i_next[0] = (i + 1) % (solutionSequenceSize - 1);
 
-        i_value = solutionSequence->at(i);
-        i_value_next = solutionSequence->at(i_next);
-        i_value_prev = solutionSequence->at(i - 1);
+        i_value[1] = solutionSequence->at(i);
+        i_value[2] = solutionSequence->at(i_next[0]);
+        i_value[0] = solutionSequence->at(i - 1);
+
+        if(i_value[1] == solutionSequence->at(0) || i_value[2] == solutionSequence->at(solutionSequenceSize - 1)){
+            continue;
+        }
 
         j = i + 1;
 
-        if(opt == 2){
-            i_2_next = (i_next + 1) % (solutionSequenceSize - 2);
-            i_value_2_next = solutionSequence->at(i_2_next);
-            j = (j + 1) % (solutionSequenceSize - 1); 
+        if(opt == 2 || opt == 3){
+            i_next[1] = (i_next[0] + 1) % (solutionSequenceSize - 1);
+            i_value[3] = solutionSequence->at(i_next[1]);
+            j = (j + 1) % (solutionSequenceSize - 1);
+
+            if(i_value[3] == solutionSequence->at(0)){
+                continue;
+            }
+
+            if(opt == 3){
+                i_next[2] = (i_next[1] + 1) % (solutionSequenceSize - 1);
+                i_value[4] = solutionSequence->at(i_next[2]);
+                j = (j + 1) % (solutionSequenceSize - 1);
+            } 
         }
 
-        while(j != i){
+        while(j != i - 1){
 
             if(j == 0 || j == solutionSequenceSize - 1){
                 j = (j + 1) % solutionSequenceSize;                
@@ -422,18 +430,17 @@ bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
 
             j_next = (j + 1) % (solutionSequenceSize - 1);
 
-            j_value = solutionSequence->at(j);
-            j_value_next = solutionSequence->at(j + 1);
+            j_value[0] = solutionSequence->at(j);
+            j_value[1] = solutionSequence->at(j + 1);
 
-            delta = -edgeCost[i_value_prev][i_value] - edgeCost[j_value][j_value_next] + edgeCost[i_value][j_value_next];
+            if(j_value[0] == solutionSequence->at(0) || j_value[0] == solutionSequence->at(solutionSequenceSize - 1)){
+                j = (j + 1) % solutionSequenceSize;                
+                continue;                
+            }
 
-            if(opt == 1){
-                delta += - edgeCost[i_value][i_value_next] + edgeCost[i_value_prev][i_value_next] + edgeCost[j_value][i_value];
-            }
-            else if(opt == 2){
-                delta +=  -edgeCost[i_value_next][i_value_2_next]
-                    + edgeCost[i_value_prev][i_value_2_next] + edgeCost[j_value][i_value_next];
-            }
+            delta = -edgeCost[i_value[0]][i_value[1]] - edgeCost[j_value[0]][j_value[1]] + edgeCost[i_value[1]][j_value[1]];
+
+            delta += deltaUpdate(opt, i_value, j_value);
 
             if(delta < best_delta){
                 best_delta = delta;
@@ -469,13 +476,49 @@ void orOptUpdate(std::vector<int> *solutionSequence, int opt, int best_i, int be
             solutionSequence->erase(solutionSequence->begin() + best_i, solutionSequence->begin() + best_i + 2);
 
             std::reverse(subVector.begin(), subVector.end());
-            for(int i = 0; i < subVector.size(); i++){
-                printf("\n%d", subVector.at(i));
+
+            if(best_i < best_j){
+                solutionSequence->insert(solutionSequence->begin() + best_j - 1, subVector.begin(), subVector.end());
             }
-            solutionSequence->insert(solutionSequence->begin() + best_j - 1, subVector.begin(), subVector.end());
+            else{
+                solutionSequence->insert(solutionSequence->begin() + best_j + 1, subVector.begin(), subVector.end());
+            }
             break;
         }
+
+        case 3:{
+            std::vector<int> subVector {solutionSequence->begin() + best_i, solutionSequence->begin() + best_i + 3};
+            solutionSequence->erase(solutionSequence->begin() + best_i, solutionSequence->begin() + best_i + 3);
+
+            std::reverse(subVector.begin(), subVector.end());
+
+            if(best_i < best_j){
+                solutionSequence->insert(solutionSequence->begin() + best_j - 3, subVector.begin(), subVector.end());
+            }
+            else{
+                solutionSequence->insert(solutionSequence->begin() + best_j + 1, subVector.begin(), subVector.end());
+            }
+        }
     }
+}
+
+double deltaUpdate(int opt, int i_value[], int j_value[]){
+    switch(opt){
+        case 1:{
+            return -edgeCost[i_value[1]][i_value[2]] + edgeCost[i_value[0]][i_value[2]] + edgeCost[j_value[0]][i_value[1]];
+        }
+
+        case 2:{
+            return -edgeCost[i_value[2]][i_value[3]]
+                    + edgeCost[i_value[0]][i_value[3]] + edgeCost[j_value[0]][i_value[2]];
+        }
+
+        case 3:{
+            return -edgeCost[i_value[3]][i_value[4]] + edgeCost[j_value[0]][i_value[3]] + edgeCost[i_value[0]][i_value[4]];
+        }
+    }
+
+    return 0.0;
 }
 
 Solution construction(){
