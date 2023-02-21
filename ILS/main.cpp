@@ -110,13 +110,13 @@ bool vectorContains(std::vector<int> vec, int value);
 
 void orOptUpdate(std::vector<int> *solutionSequence, int opt, int best_i, int best_j);
 
-Solution iteratedLocalSearch(int maxIter, int maxIterILS); //
+Solution iteratedLocalSearch(int maxIter, int maxIterILS); 
 
-Solution construction(); //
+Solution construction(); 
 
-Solution perturbation(Solution bestSolution); //
+Solution perturbation(Solution bestSolution); 
 
-void localSearch(Solution* possibleSolution); //
+void localSearch(Solution* possibleSolution); 
 
 void whileILS(Solution solution, int *iterILS);
 
@@ -124,7 +124,7 @@ std::vector<InsertionInfo> insertionCostCalculation(Solution &solution, std::vec
 
 void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> &complement);
 
-void printVector(int i_value, int j_value);
+void printVector(std::vector<int> vec, int i_value);
 
 void setEdgeCosts();
 
@@ -132,21 +132,35 @@ std::vector<InsertionInfo> insertionInfo();
 
 double deltaUpdate(int opt, int i_value[], int j_value[]);
 
+int getNextIndex(int currentIndex, int maxIndex);
+
+int getSegmentSize(int nVertices);
+
+bool validSegment(int segment_index, int segmentSize, std::vector<int> *solutionSequence);
+
+bool swap_segments(std::vector<int> *vec, int start1, int size1, int start2, int size2);
+
 int main(void){
 
     time_t t;
-    srand(time(&t));
+    // srand(time(&t));
 
     setEdgeCosts();
+
+    for(int i = 0; i < numberOfVertices; i++){
+        for(int j = 0; j < numberOfVertices; j++){
+            printf("edgeCost[%d][%d] = %d\n", i, j, edgeCost[i][j]);
+        }
+        printf("\n");
+    }
 
     for(int i = 0; i < numberOfVertices; i++){
         vertices.push_back(i + 1);
     }
 
-    Solution solution = construction();
-
-    printf("\n");
+    Solution solution = iteratedLocalSearch(50, 10);
     solution.print();
+    printf("%f\n", solution.getCost());
 
     // bestImprovementSwap(&solution);
 
@@ -158,20 +172,30 @@ int main(void){
     // printf("\n");
     // solution.print();
 
-    bestImprovementReinsertion(&solution);
+    // bestImprovementReinsertion(&solution);
 
-    printf("\n");
-    solution.print();
+    // printf("\n");
+    // solution.print();
 
-    bestImprovementOrOpt(&solution, 2);
+    // bestImprovementOrOpt(&solution, 2);
 
-    printf("\n");
-    solution.print();
+    // printf("\n");
+    // solution.print();
 
-    bestImprovementOrOpt(&solution, 3);
+    // bestImprovementOrOpt(&solution, 3);
 
-    printf("\n");
-    solution.print();
+    // printf("\n");
+    // solution.print();
+
+    // swap_segments(solution.getSequencePointer(), 1, 3, 5 , 9);
+
+    // printf("\n");
+    // printVector(solution.getSequence(), solution.getSequence().size());
+
+    // solution = perturbation(solution);
+
+    // printf("\n");
+    // solution.print();
 
 
     return 0;
@@ -273,8 +297,10 @@ bool vectorContains(std::vector<int> vec, int value){
 void printVector(std::vector<int> vec, int i_value){
     
     for(int i = 0; i < i_value; i++){
-        std::cout << "edgeCost[" << i << "] = " << vec.at(i) << std::endl;
+        std::cout << vec.at(i) << " ";
     }
+
+    std::cout << std::endl;
 }
 
 bool bestImprovementSwap(Solution *solution){
@@ -288,14 +314,14 @@ bool bestImprovementSwap(Solution *solution){
     double delta;
 
     for(int i = 1; i < solutionSequence->size() - 1; i++){
-        i_value = solutionSequence->at(i);
-        i_value_next = solutionSequence->at(i + 1);
-        i_value_prev = solutionSequence->at(i - 1);
+        i_value = solutionSequence->at(i) - 1;
+        i_value_next = solutionSequence->at(i + 1) - 1;
+        i_value_prev = solutionSequence->at(i - 1) - 1;
 
         for(int j = i + 1; j < solutionSequence->size() - 1; j++){
-            j_value = solutionSequence->at(j);
-            j_value_next = solutionSequence->at(j + 1);
-            j_value_prev = solutionSequence->at(j - 1);
+            j_value = solutionSequence->at(j) - 1;
+            j_value_next = solutionSequence->at(j + 1) - 1;
+            j_value_prev = solutionSequence->at(j - 1) - 1 ;
 
             //Revisar essa fórmula do delta. REVISA ISSO AQUI!!
             delta = -edgeCost[i_value][i_value_prev] - edgeCost[i_value][i_value_next] + edgeCost[i_value_prev][i] + 
@@ -329,12 +355,12 @@ bool bestImprovement2Opt(Solution *possibleSolution){
     int j_value = 0, j_next_value = 0;
 
     for(int i = 0; i < solutionSequence->size() - 1; i++){
-        i_value = solutionSequence->at(i);
-        i_next_value = solutionSequence->at(i + 1);
+        i_value = solutionSequence->at(i) - 1;
+        i_next_value = solutionSequence->at(i + 1) - 1;
 
         for(int j = i + 2; j < solutionSequence->size() - 1; j++){
-            j_value = solutionSequence->at(j);
-            j_next_value = solutionSequence->at(j + 1);
+            j_value = solutionSequence->at(j) - 1;
+            j_next_value = solutionSequence->at(j + 1) - 1;
 
             delta = -edgeCost[i_value][i_next_value] - edgeCost[j_value][j_next_value] 
                     + edgeCost[i_value][j_value] + edgeCost[i_next_value][j_next_value];
@@ -376,7 +402,7 @@ bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
     }
 
     solutionSequence = possibleSolution->getSequencePointer();
-    int solutionSequenceSize = solutionSequence->size();
+    const int solutionSequenceSize = solutionSequence->size();
 
     double best_delta = 0, delta = 0;
 
@@ -393,31 +419,31 @@ bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
 
     int j = 0;
     for(int i = 1; i < solutionSequenceSize - 1; i++){
-        i_next[0] = (i + 1) % (solutionSequenceSize - 1);
+        i_next[0] = getNextIndex(i, solutionSequenceSize - 1);
 
-        i_value[1] = solutionSequence->at(i);
-        i_value[2] = solutionSequence->at(i_next[0]);
-        i_value[0] = solutionSequence->at(i - 1);
+        i_value[1] = solutionSequence->at(i) - 1;
+        i_value[2] = solutionSequence->at(i_next[0]) - 1;
+        i_value[0] = solutionSequence->at(i - 1) - 1;
 
-        if(i_value[1] == solutionSequence->at(0) || i_value[2] == solutionSequence->at(solutionSequenceSize - 1)){
+        if(i_value[1] == solutionSequence->at(0) - 1 || i_value[2] == solutionSequence->at(solutionSequenceSize - 1) - 1){
             continue;
         }
 
         j = i + 1;
 
         if(opt == 2 || opt == 3){
-            i_next[1] = (i_next[0] + 1) % (solutionSequenceSize - 1);
-            i_value[3] = solutionSequence->at(i_next[1]);
-            j = (j + 1) % (solutionSequenceSize - 1);
+            i_next[1] = getNextIndex(i_next[0], solutionSequenceSize - 1);
+            i_value[3] = solutionSequence->at(i_next[1]) - 1;
+            j = getNextIndex(j, solutionSequenceSize - 1);
 
-            if(i_value[3] == solutionSequence->at(0)){
+            if(i_value[3] == solutionSequence->at(0) - 1){
                 continue;
             }
 
             if(opt == 3){
-                i_next[2] = (i_next[1] + 1) % (solutionSequenceSize - 1);
-                i_value[4] = solutionSequence->at(i_next[2]);
-                j = (j + 1) % (solutionSequenceSize - 1);
+                i_next[2] = getNextIndex(i_next[1], solutionSequenceSize - 1);
+                i_value[4] = solutionSequence->at(i_next[2]) - 1;
+                j = getNextIndex(j, solutionSequenceSize - 1);
             } 
         }
 
@@ -428,12 +454,12 @@ bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
                 continue;
             }
 
-            j_next = (j + 1) % (solutionSequenceSize - 1);
+            j_next = getNextIndex(j, solutionSequenceSize - 1);
 
-            j_value[0] = solutionSequence->at(j);
-            j_value[1] = solutionSequence->at(j + 1);
+            j_value[0] = solutionSequence->at(j) - 1;
+            j_value[1] = solutionSequence->at(j_next) - 1;
 
-            if(j_value[0] == solutionSequence->at(0) || j_value[0] == solutionSequence->at(solutionSequenceSize - 1)){
+            if(j_value[0] == solutionSequence->at(0) - 1 || j_value[0] == solutionSequence->at(solutionSequenceSize - 1) - 1){
                 j = (j + 1) % solutionSequenceSize;                
                 continue;                
             }
@@ -448,7 +474,7 @@ bool bestImprovementOrOpt(Solution *possibleSolution, int opt){
                 best_j = j;
             }
 
-            j = (j + 1) % (solutionSequenceSize - 1);
+            j = getNextIndex(j, solutionSequenceSize - 1);
         }
     }
 
@@ -547,7 +573,35 @@ Solution construction(){
 }
 
 Solution perturbation(Solution bestSolution){
-    Solution solution;
+    Solution solution = bestSolution;
+    std::vector<int> *solutionSequence = bestSolution.getSequencePointer();
+    int segmentSize;
+    int segment1_init, segment2_init = 1, segment1_end = 0, segment2_end;
+
+    while(segment1_end < segment2_init){
+        segmentSize = getSegmentSize(solutionSequence->size());
+        segment1_init = (rand() % (solutionSequence->size() - 2)) + 1;
+
+        if(!validSegment(segment1_init, segmentSize, solutionSequence)){
+            segment1_init = 1;
+            segment1_end = 0;
+            continue;
+        }
+
+        segment1_end = segment1_init + segmentSize;
+
+        segment2_init = (rand() % (solutionSequence->size() - 2)) + 1;
+
+        if(!validSegment(segment1_init, segmentSize, solutionSequence)){
+            segment1_init = 1;
+            segment1_end = 0;
+            continue;
+        }
+    }
+
+    swap_segments(solutionSequence, segment1_init, segment1_end - segment1_init + 1,
+                 segment2_init, segment2_end - segment2_init + 1);
+
     return solution;
 }
 
@@ -594,7 +648,7 @@ Solution iteratedLocalSearch(int maxIter, int maxIterILS){
     bestOfAll.setCost(INFINITY);
 
     for(int i = 0; i < maxIter; i++){
-        Solution solution = construction(); //Construção de uma solução baseado em "palpites educativos"
+        Solution solution = construction(); //Construção de uma solução baseado em "palpites
         Solution best = solution;
 
         iterILS = 0;
@@ -660,6 +714,56 @@ void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> 
         }
     }
 }
+
+int getNextIndex(int currentIndex, int maxIndex){
+    return (currentIndex + 1) % (maxIndex);
+}
+
+
+int getSegmentSize(int nVertices){
+    return 2 + ceil(rand() % ((nVertices)/10)); 
+}
+
+bool validSegment(int segment_index, int segmentSize, std::vector<int> *solutionSequence){
+    return ((segment_index + segmentSize) % (solutionSequence->size() - 1)) > segment_index;
+}
+
+bool swap_segments(std::vector<int> *vec, int start1, int size1, int start2, int size2){
+
+// Sort the segment indices to ensure that they are in increasing order
+    if (start1 > start2) {
+        std::swap(start1, start2);
+        std::swap(size1, size2);
+    }
+    
+    // Check that the segments do not overlap
+    if (start1 + size1 > start2) {
+        return false;
+    }
+
+    //Don't want to change segments that have the first or last element
+    if(start1 == 0 || start2 == vec->size() - 1){
+        return false;
+    }
+
+    if(start2 + size2 >= vec->size() - 1 || start1 + size1 >= vec->size() - 1){
+        return false;
+    }
+    
+    // Get iterators to the beginning and end of each segment
+    auto seg1_begin = vec->begin() + start1;
+    auto seg1_end = seg1_begin + size1;
+    auto seg2_begin = vec->begin() + start2;
+    auto seg2_end = seg2_begin + size2;
+    
+    // Swap the segments using std::rotate
+    std::rotate(seg1_begin, seg2_begin, seg2_end);
+    std::rotate(seg2_begin, seg1_end, seg1_end + size2);
+
+    return true;
+}
+
+
 
 
 
