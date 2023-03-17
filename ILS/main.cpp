@@ -6,7 +6,7 @@
 #include <math.h>
 
 std::vector<int> *solutionSequence;
-const int numberOfVertices = 10;
+const int numberOfVertices = 6;
 std::vector<int> vertices;
 int edgeCost[numberOfVertices][numberOfVertices];
 
@@ -90,11 +90,13 @@ class InsertionInfo{
 
 bool greaterCost(Solution first, Solution second);
 
-std::vector<int> choose3RandomNodes();
+void choose3RandomNodes(Solution &solution);
 
 std::vector<int> remainingNodes(std::vector<int> sequence);
 
-void insertionSort(std::vector<InsertionInfo> &sequence);
+void mergeSort(std::vector<InsertionInfo> &sequence, int beginning, int end);
+
+void intercalateArrays(std::vector<InsertionInfo> &sequence, int beg1, int end1, int beg2, int end2);
 
 bool vectorContains(std::vector<int> vec, int value);
 
@@ -147,12 +149,12 @@ int main(void){
 
     setEdgeCosts();
 
-    for(int i = 0; i < numberOfVertices; i++){
-        for(int j = 0; j < numberOfVertices; j++){
-            printf("edgeCost[%d][%d] = %d\n", i, j, edgeCost[i][j]);
-        }
-        printf("\n");
-    }
+    // for(int i = 0; i < numberOfVertices; i++){
+    //     for(int j = 0; j < numberOfVertices; j++){
+    //         printf("edgeCost[%d][%d] = %d\n", i, j, edgeCost[i][j]);
+    //     }
+    //     printf("\n");
+    // }
 
     for(int i = 0; i < numberOfVertices; i++){
         vertices.push_back(i + 1);
@@ -160,7 +162,14 @@ int main(void){
 
     Solution solution = iteratedLocalSearch(50, 10);
     solution.print();
-    printf("%f\n", solution.getCost());
+    printf("%lf\n", solution.getCost());
+
+    double cost = 0;
+    std::vector<int> sequence = solution.getSequence();
+    for(int i = 0; i < sequence.size() - 1; i++){
+        cost += edgeCost[sequence.at(i) - 1][sequence.at(i + 1) - 1];
+    }
+    printf("%f", cost);
 
     // bestImprovementSwap(&solution);
 
@@ -236,23 +245,22 @@ bool greaterCost(Solution first, Solution second){
     return first.getCost() < second.getCost();
 }
 
-std::vector<int> choose3RandomNodes(){
-    std::vector<int> ret;
+void choose3RandomNodes(Solution &solution){
+    solutionSequence = solution.getSequencePointer();
 
-    ret.push_back(1);
+    solutionSequence->push_back(1);
     for(int i = 0; i < 3; i++){
         int vertex = (rand() % (numberOfVertices - 1)) + 2;
-        if(vectorContains(ret, vertex) == true){
+        if(vectorContains(*solutionSequence, vertex) == true){
             i--;
             continue;
         }
 
-        ret.push_back(vertex); //3 vértices aleatórios
+        solutionSequence->push_back(vertex); //3 vértices aleatórios
+        solution.setCost(solution.getCost() + edgeCost[i][i + 1]);
     }
 
-    ret.push_back(1);
-
-    return ret;
+    solutionSequence->push_back(1);
 }
 
 std::vector<int> remainingNodes(std::vector<int> sequence){
@@ -270,20 +278,7 @@ std::vector<int> remainingNodes(std::vector<int> sequence){
     return ret;
 }
 
-void insertionSort(std::vector<InsertionInfo> &sequence){
-    int j;
-    InsertionInfo temp;
 
-    for(int i = 1; i < sequence.size(); i++){
-        temp = sequence.at(i);
-        j = i - 1;
-        while(j >= 0 && sequence.at(j).getCost() > temp.getCost()){ //Ordem crescente
-            sequence[j + 1] = sequence[j];
-            j--;
-        }
-        sequence[j + 1] = temp;
-    }
-}
 
 bool vectorContains(std::vector<int> vec, int value){
 
@@ -549,8 +544,9 @@ double deltaUpdate(int opt, int i_value[], int j_value[]){
 
 Solution construction(){
     Solution solution;
+    solution.setCost(0);
 
-    solution.setSequence(choose3RandomNodes()); //Escolha de 3 vértices aleatórios
+    choose3RandomNodes(solution); //Escolha de 3 vértices aleatórios
     std::vector<int> complement = remainingNodes(solution.getSequence()); //Complemento dos 3 vértices
 
     double alpha;
@@ -558,16 +554,17 @@ Solution construction(){
 
     while(!complement.empty()){ //Enquanto ainda tiverem vértices a colocar na solução
 
-        std::vector<InsertionInfo> insertionCost = insertionCostCalculation(solution, complement); 
+        printf("--- ANTES ---\n");
+        std::vector<InsertionInfo> insertionCost = insertionCostCalculation(solution, complement);
         //Todas possibilidades de inserção
-        insertionSort(insertionCost); //Ordenar essas possibilidades em ordem crescente de custo
-
+        mergeSort(insertionCost, 0, insertionCost.size() - 1); //Ordenar essas possibilidades em ordem crescente de custo
         alpha = (double) rand() / RAND_MAX; 
         choosen = rand() % ((int) ceil (alpha * insertionCost.size())); //Definir a inserção escolhida
 
         updateSolution(solution, insertionCost.at(choosen), complement); //Atualizar a solução, incluindo
         //remover um dos vértices do complemento
     }
+
 
     return solution;
 }
@@ -590,6 +587,7 @@ Solution perturbation(Solution bestSolution){
 
         segment1_end = segment1_init + segmentSize;
 
+        segmentSize = getSegmentSize(solutionSequence->size());
         segment2_init = (rand() % (solutionSequence->size() - 2)) + 1;
 
         if(!validSegment(segment1_init, segmentSize, solutionSequence)){
@@ -597,10 +595,13 @@ Solution perturbation(Solution bestSolution){
             segment1_end = 0;
             continue;
         }
+        segment2_end = segment2_init + segmentSize;
     }
 
     swap_segments(solutionSequence, segment1_init, segment1_end - segment1_init + 1,
                  segment2_init, segment2_end - segment2_init + 1);
+
+    //Faltou atualizar o custo
 
     return solution;
 }
@@ -648,7 +649,7 @@ Solution iteratedLocalSearch(int maxIter, int maxIterILS){
     bestOfAll.setCost(INFINITY);
 
     for(int i = 0; i < maxIter; i++){
-        Solution solution = construction(); //Construção de uma solução baseado em "palpites
+        Solution solution = construction(); //Construção de uma solução baseado em palpites
         Solution best = solution;
 
         iterILS = 0;
@@ -668,6 +669,8 @@ Solution iteratedLocalSearch(int maxIter, int maxIterILS){
         if(greaterCost(best, bestOfAll)){
             bestOfAll = best;
         }
+        printf("Solution after ILS: %f\n", bestOfAll.getCost());
+        bestOfAll.print();
     }
 
     return bestOfAll;
@@ -706,6 +709,8 @@ void updateSolution(Solution &solution, InsertionInfo choosen, std::vector<int> 
     solutionSequence->insert(solutionSequence->begin() + choosen.getRemovedEdgeIndex() + 1, choosen.getInsertedNode());
     //Colocar o vértice no lugar correspondente. se antes tinham os vértices i - j, e colocou-se um
     //k no meio (i - k - j), a função vai fazer isso ai
+
+    solution.setCost(solution.getCost() + choosen.getCost());
 
     for(int i = 0; i < complement.size(); i++){
         if(complement.at(i) == choosen.getInsertedNode()){ //Tirar o nó do complemento que foi colocado na solução
@@ -761,6 +766,56 @@ bool swap_segments(std::vector<int> *vec, int start1, int size1, int start2, int
     std::rotate(seg2_begin, seg1_end, seg1_end + size2);
 
     return true;
+}
+
+void intercalateArrays(std::vector<InsertionInfo> &sequence, int beg1, int end1, int beg2, int end2){
+    int new_array_size = end1 - beg1 + 1 + end2 - beg2 + 1;
+    InsertionInfo new_array[new_array_size];
+    int new_array_counter = 0;
+
+    int control1 = beg1, control2 = beg2;
+    while(control1 <= end1 && control2 <= end2){
+        if(sequence.at(control1).getCost() < sequence.at(control2).getCost()){
+            new_array[new_array_counter] = sequence.at(control1);
+            control1++;
+        }
+        else{
+            new_array[new_array_counter] = sequence.at(control2);
+            control2++;
+        }
+
+        new_array_counter++;
+    }
+
+    if(control1 > end1){
+        for(int i = control2; i <= end2; i++){
+            new_array[new_array_counter] = sequence.at(i);
+            new_array_counter++;
+        }
+    }
+    else if(control2 > end2){
+        for(int i = control1; i <= end1; i++){
+            new_array[new_array_counter] = sequence.at(i);
+            new_array_counter++;
+        }
+    }
+
+
+    for(int i = 0; i < new_array_size; i++){
+        sequence[beg1] = new_array[i];
+        beg1++;
+    }
+}
+
+void mergeSort(std::vector<InsertionInfo> &sequence, int beginning, int end){
+    if(end <= beginning){
+        return;
+    }
+
+    int half = (beginning + end)/2;
+    mergeSort(sequence, beginning, half);
+    mergeSort(sequence, half + 1, end);
+    intercalateArrays(sequence, beginning, half, half + 1, end);
 }
 
 
